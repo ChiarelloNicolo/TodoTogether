@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodoTogether.Models", "TodoTogether.Models\TodoTogether.Models.csproj", "{A03DB98E-ADBF-465F-958F-A115F68757DC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodoTogether", "TodoTogether\TodoTogether.csproj", "{C562695C-1BBB-45BB-9C04-66725E2BBCC3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodoTogether.Blazor", "TodoTogether.Blazor\TodoTogether.Blazor.csproj", "{C562695C-1BBB-45BB-9C04-66725E2BBCC3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
