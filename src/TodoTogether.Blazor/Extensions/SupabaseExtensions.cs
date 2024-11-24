@@ -1,11 +1,9 @@
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Supabase;
 using Supabase.Gotrue;
 using Supabase.Gotrue.Interfaces;
-using TodoTogether.Security;
 using Client = Supabase.Client;
 
-namespace TodoTogether.Extensions;
+namespace TodoTogether.Blazor.Extensions;
 
 public static class SupabaseExtensions
 {

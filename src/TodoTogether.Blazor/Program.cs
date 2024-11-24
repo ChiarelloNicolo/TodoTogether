@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Supabase.Gotrue;
 using Supabase.Gotrue.Interfaces;
-using TodoTogether;
-using TodoTogether.Extensions;
-using TodoTogether.Security;
+using TodoTogether.Blazor;
+using TodoTogether.Blazor.Extensions;
+using TodoTogether.Blazor.Security;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 

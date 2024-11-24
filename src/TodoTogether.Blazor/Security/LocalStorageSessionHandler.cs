@@ -1,10 +1,9 @@
 using Blazored.LocalStorage;
-using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using Supabase.Gotrue;
 using Supabase.Gotrue.Interfaces;
 
-namespace TodoTogether.Security;
+namespace TodoTogether.Blazor.Security;
 
 public class LocalStorageSessionHandler : IGotrueSessionPersistence<Session>
 {
