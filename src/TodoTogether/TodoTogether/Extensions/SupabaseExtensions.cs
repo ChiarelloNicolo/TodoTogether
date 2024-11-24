@@ -1,27 +1,41 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Supabase;
+using Supabase.Gotrue;
+using Supabase.Gotrue.Interfaces;
+using TodoTogether.Security;
+using Client = Supabase.Client;
 
 namespace TodoTogether.Extensions;
 
 public static class SupabaseExtensions
 {
-    public static void AddSupabase(this WebAssemblyHostBuilder builder)
+    public static void AddSupabase(this IServiceCollection services)
     {
-        var url = builder.Configuration["supabase:url"];
-        if (string.IsNullOrWhiteSpace(url))
-            throw new InvalidOperationException("Cannot find supabase url");
+        
 
-        var key = builder.Configuration["supabase:key"];
-        if (string.IsNullOrWhiteSpace(key))
-            throw new InvalidOperationException("Cannot find supabase key");
-        
-        var options = new SupabaseOptions
-        {
-            AutoRefreshToken = true,
-            AutoConnectRealtime = true,
-            // SessionHandler = new SupabaseSessionHandler() <-- This must be implemented by the developer
-        };
-        
-        builder.Services.AddSingleton(new Client(url, key, options));
+        services.AddSingleton(provider =>
+            {
+                var configuration = provider.GetRequiredService<IConfiguration>();
+                
+                var url = configuration["supabase:url"];
+                if (string.IsNullOrWhiteSpace(url))
+                    throw new InvalidOperationException("Cannot find supabase url");
+
+                var key = configuration["supabase:key"];
+                if (string.IsNullOrWhiteSpace(key))
+                    throw new InvalidOperationException("Cannot find supabase key");
+
+                var sessionHandler = provider.GetRequiredService<IGotrueSessionPersistence<Session>>();
+
+                var options = new SupabaseOptions
+                {
+                    AutoRefreshToken = true,
+                    AutoConnectRealtime = true,
+                    SessionHandler = sessionHandler
+                };
+                return new Client(url, key, options); 
+                
+            }
+        );
     }
 }
