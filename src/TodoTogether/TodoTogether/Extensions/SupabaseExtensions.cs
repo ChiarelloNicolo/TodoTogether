@@ -1,11 +1,20 @@
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Supabase;
 
 namespace TodoTogether.Extensions;
 
 public static class SupabaseExtensions
 {
-    public static IServiceCollection AddSupabase(this IServiceCollection services, string url, string publicKey)
+    public static void AddSupabase(this WebAssemblyHostBuilder builder)
     {
+        var url = builder.Configuration["supabase:url"];
+        if (string.IsNullOrWhiteSpace(url))
+            throw new InvalidOperationException("Cannot find supabase url");
+
+        var key = builder.Configuration["supabase:key"];
+        if (string.IsNullOrWhiteSpace(key))
+            throw new InvalidOperationException("Cannot find supabase key");
+        
         var options = new SupabaseOptions
         {
             AutoRefreshToken = true,
@@ -13,6 +22,6 @@ public static class SupabaseExtensions
             // SessionHandler = new SupabaseSessionHandler() <-- This must be implemented by the developer
         };
         
-        return services.AddSingleton(new Client(url, publicKey, options));
+        builder.Services.AddSingleton(new Client(url, key, options));
     }
 }
