@@ -1,6 +1,7 @@
 using Supabase;
 using Supabase.Gotrue;
 using Supabase.Gotrue.Interfaces;
+using TodoTogether.Blazor.Security;
 using Client = Supabase.Client;
 
 namespace TodoTogether.Blazor.Extensions;
@@ -23,8 +24,8 @@ public static class SupabaseExtensions
                 if (string.IsNullOrWhiteSpace(key))
                     throw new InvalidOperationException("Cannot find supabase key");
 
-                var sessionHandler = provider.GetRequiredService<IGotrueSessionPersistence<Session>>();
-
+                var sessionHandler = provider.GetRequiredService<LocalStorageSessionHandler>();
+                
                 var options = new SupabaseOptions
                 {
                     AutoRefreshToken = true,
