@@ -1,0 +1,277 @@
+@page "/tasks"
+@using Microsoft.AspNetCore.Authorization
+@using Supabase.Postgrest
+@using TodoTogether.Blazor.Models
+@using Client = Supabase.Client
+@attribute [Authorize]
+@inject Client Supabase
+
+<PageTitle>Tasks</PageTitle>
+
+<h1>Tasks</h1>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <p>@StatusMessage</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <p style="color: darkred;">@ErrorMessage</p>
+}
+
+<EditForm Model="Draft" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator/>
+    <ValidationSummary/>
+
+    <div>
+        <label>
+            Title
+            <InputText @bind-Value="Draft.Title"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Description
+            <InputText @bind-Value="Draft.Description"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Completed
+            <InputCheckbox @bind-Value="Draft.IsCompleted"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Due At (UTC)
+            <InputDate @bind-Value="Draft.DueAt"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Completed At (UTC)
+            <InputDate @bind-Value="Draft.CompletedAt"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Season (bitfield)
+            <SeasonEditor @bind-Value="Draft.Seasons" />
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Latitude
+            <InputNumber @bind-Value="Draft.Latitude"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Longitude
+            <InputNumber @bind-Value="Draft.Longitude"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Task Group Id
+            <InputText @bind-Value="TaskGroupIdInput"/>
+        </label>
+    </div>
+
+    <div>
+        <button type="submit">@(IsEditing ? "Update" : "Create")</button>
+        @if (IsEditing)
+        {
+            <button type="button" @onclick="CancelEdit">Cancel</button>
+        }
+    </div>
+</EditForm>
+
+<hr/>
+
+@if (IsLoading)
+{
+    <p>Loading tasks...</p>
+}
+else if (TaskList.Count == 0)
+{
+    <p>No tasks yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+        <tr>
+            <th>Title</th>
+            <th>Completed</th>
+            <th>Due</th>
+            <th>Season</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>Task Group</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var task in TaskList)
+        {
+            <tr>
+                <td>@task.Title</td>
+                <td>@(task.IsCompleted ? "Yes" : "No")</td>
+                <td>@task.DueAt?.ToString("yyyy-MM-dd")</td>
+                <td>@task.Seasons</td>
+                <td>@task.Latitude</td>
+                <td>@task.Longitude</td>
+                <td>@task.TaskGroupId</td>
+                <td>
+                    <button @onclick="() => BeginEdit(task)">Edit</button>
+                    <button @onclick="() => DeleteAsync(task)">Delete</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<TaskItem> TaskList { get; } = new();
+    private TaskItem Draft { get; set; } = new();
+    private string TaskGroupIdInput { get; set; } = string.Empty;
+    private bool IsEditing { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private string? StatusMessage { get; set; }
+    private string? ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasksAsync();
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        try
+        {
+            var response = await Supabase.From<TaskItem>()
+                .Order(x => x.CreatedAt, Constants.Ordering.Ascending)
+                .Get();
+
+            TaskList.Clear();
+            TaskList.AddRange(response.Models);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to load tasks: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+
+        if (string.IsNullOrWhiteSpace(Draft.Title))
+        {
+            ErrorMessage = "Title is required.";
+            return;
+        }
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(TaskGroupIdInput))
+            {
+                Draft.TaskGroupId = null;
+            }
+            else if (Guid.TryParse(TaskGroupIdInput, out var taskGroupId))
+            {
+                Draft.TaskGroupId = taskGroupId;
+            }
+            else
+            {
+                ErrorMessage = "Task Group Id must be a valid GUID.";
+                return;
+            }
+
+            if (IsEditing)
+            {
+                await Supabase.From<TaskItem>().Update(Draft);
+                var index = TaskList.FindIndex(x => x.Id == Draft.Id);
+                if (index >= 0)
+                {
+                    TaskList[index] = Draft.Clone();
+                }
+
+                StatusMessage = "Task updated.";
+            }
+            else
+            {
+                var insert = await Supabase.From<TaskItem>().Insert(Draft);
+                var created = insert.Models.FirstOrDefault();
+                if (created != null)
+                {
+                    TaskList.Insert(0, created);
+                }
+
+                StatusMessage = "Task created.";
+            }
+
+            Draft = new TaskItem();
+            TaskGroupIdInput = string.Empty;
+            IsEditing = false;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to save task: {ex.Message}";
+        }
+    }
+
+    private void BeginEdit(TaskItem task)
+    {
+        Draft = task.Clone();
+        TaskGroupIdInput = task.TaskGroupId?.ToString() ?? string.Empty;
+        IsEditing = true;
+        StatusMessage = null;
+        ErrorMessage = null;
+    }
+
+    private void CancelEdit()
+    {
+        Draft = new TaskItem();
+        TaskGroupIdInput = string.Empty;
+        IsEditing = false;
+        StatusMessage = null;
+        ErrorMessage = null;
+    }
+
+    private async Task DeleteAsync(TaskItem task)
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+
+        try
+        {
+            await Supabase.From<TaskItem>().Delete(task);
+            TaskList.Remove(task);
+            StatusMessage = "Task deleted.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to delete task: {ex.Message}";
+        }
+    }
+
+}

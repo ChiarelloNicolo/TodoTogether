@@ -1,0 +1,62 @@
+@using System.Linq.Expressions
+@using TodoTogether.Blazor.Models.Enums
+<div class="season-editor">
+    <label>
+        <input type="checkbox" checked="@IsAll" @onchange="ToggleAll"/>
+        All
+    </label>
+    <label>
+        <input type="checkbox" checked="@IsSelected(Seasons.Spring)" @onchange="() => Toggle(Seasons.Spring)"/>
+        Spring
+    </label>
+    <label>
+        <input type="checkbox" checked="@IsSelected(Seasons.Summer)" @onchange="() => Toggle(Seasons.Summer)"/>
+        Summer
+    </label>
+    <label>
+        <input type="checkbox" checked="@IsSelected(Seasons.Autumn)" @onchange="() => Toggle(Seasons.Autumn)"/>
+        Autumn
+    </label>
+    <label>
+        <input type="checkbox" checked="@IsSelected(Seasons.Winter)" @onchange="() => Toggle(Seasons.Winter)"/>
+        Winter
+    </label>
+</div>
+
+@code {
+    [Parameter] public Seasons? Value { get; set; }
+    [Parameter] public EventCallback<Seasons?> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<Seasons?>>? ValueExpression { get; set; }
+
+    private Seasons Current => Value ?? Seasons.None;
+
+    private bool IsAll => Current == Seasons.All;
+
+    private bool IsSelected(Seasons season)
+    {
+        return (Current & season) == season;
+    }
+
+    private Task ToggleAll(ChangeEventArgs _)
+    {
+        var newValue = IsAll ? (Seasons?)null : Seasons.All;
+        return ValueChanged.InvokeAsync(newValue);
+    }
+
+    private Task Toggle(Seasons season)
+    {
+        var current = Current;
+        if ((current & season) == season)
+        {
+            current &= ~season;
+        }
+        else
+        {
+            current |= season;
+        }
+
+        var newValue = current == Seasons.None ? (Seasons?)null : current;
+        return ValueChanged.InvokeAsync(newValue);
+    }
+
+}

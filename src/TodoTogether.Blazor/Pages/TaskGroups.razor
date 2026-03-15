@@ -1,0 +1,212 @@
+@page "/task-groups"
+@using Microsoft.AspNetCore.Authorization
+@using Supabase.Postgrest
+@using TodoTogether.Blazor.Models
+@using Client = Supabase.Client
+@attribute [Authorize]
+@inject Client Supabase
+
+<PageTitle>Task Groups</PageTitle>
+
+<h1>Task Groups</h1>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <p>@StatusMessage</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <p style="color: darkred;">@ErrorMessage</p>
+}
+
+<EditForm Model="Draft" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator/>
+    <ValidationSummary/>
+
+    <div>
+        <label>
+            Name
+            <InputText @bind-Value="Draft.Name"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            Description
+            <InputText @bind-Value="Draft.Description"/>
+        </label>
+    </div>
+
+    <div>
+        <button type="submit">@(IsEditing ? "Update" : "Create")</button>
+        @if (IsEditing)
+        {
+            <button type="button" @onclick="CancelEdit">Cancel</button>
+        }
+    </div>
+</EditForm>
+
+<hr/>
+
+@if (IsLoading)
+{
+    <p>Loading groups...</p>
+}
+else if (Groups.Count == 0)
+{
+    <p>No groups yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var group in Groups)
+        {
+            <tr>
+                <td>@group.Name</td>
+                <td>@group.Description</td>
+                <td>
+                    <button @onclick="() => BeginEdit(group)">Edit</button>
+                    <button @onclick="() => DeleteAsync(group)">Delete</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<TaskGroup> Groups { get; } = new();
+    private TaskGroup Draft { get; set; } = new();
+    private bool IsEditing { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private string? StatusMessage { get; set; }
+    private string? ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGroupsAsync();
+    }
+
+    private async Task LoadGroupsAsync()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        try
+        {
+            var response = await Supabase.From<TaskGroup>()
+                .Order(x => x.CreatedAt, Constants.Ordering.Ascending)
+                .Get();
+
+            Groups.Clear();
+            Groups.AddRange(response.Models);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to load groups: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+
+        if (string.IsNullOrWhiteSpace(Draft.Name))
+        {
+            ErrorMessage = "Name is required.";
+            return;
+        }
+
+        try
+        {
+            if (IsEditing)
+            {
+                await Supabase.From<TaskGroup>().Update(Draft);
+                var index = Groups.FindIndex(x => x.Id == Draft.Id);
+                if (index >= 0)
+                {
+                    Groups[index] = Clone(Draft);
+                }
+
+                StatusMessage = "Group updated.";
+            }
+            else
+            {
+                var insert = await Supabase.From<TaskGroup>().Insert(Draft);
+                var created = insert.Models.FirstOrDefault();
+                if (created != null)
+                {
+                    Groups.Insert(0, created);
+                }
+
+                StatusMessage = "Group created.";
+            }
+
+            Draft = new TaskGroup();
+            IsEditing = false;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to save group: {ex.Message}";
+        }
+    }
+
+    private void BeginEdit(TaskGroup group)
+    {
+        Draft = Clone(group);
+        IsEditing = true;
+        StatusMessage = null;
+        ErrorMessage = null;
+    }
+
+    private void CancelEdit()
+    {
+        Draft = new TaskGroup();
+        IsEditing = false;
+        StatusMessage = null;
+        ErrorMessage = null;
+    }
+
+    private async Task DeleteAsync(TaskGroup group)
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+
+        try
+        {
+            await Supabase.From<TaskGroup>().Delete(group);
+            Groups.Remove(group);
+            StatusMessage = "Group deleted.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to delete group: {ex.Message}";
+        }
+    }
+
+    private static TaskGroup Clone(TaskGroup group)
+    {
+        return new TaskGroup
+        {
+            Id = group.Id,
+            CreatedAt = group.CreatedAt,
+            CreatedBy = group.CreatedBy,
+            Name = group.Name,
+            Description = group.Description
+        };
+    }
+
+}

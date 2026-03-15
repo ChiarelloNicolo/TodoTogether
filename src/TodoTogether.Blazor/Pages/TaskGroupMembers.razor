@@ -1,0 +1,180 @@
+@page "/task-group-members"
+@using Microsoft.AspNetCore.Authorization
+@using Supabase.Postgrest
+@using TodoTogether.Blazor.Models
+@using Client = Supabase.Client
+@attribute [Authorize]
+@inject Client Supabase
+
+<PageTitle>Task Group Members</PageTitle>
+
+<h1>Task Group Members</h1>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <p>@StatusMessage</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <p style="color: darkred;">@ErrorMessage</p>
+}
+
+<EditForm Model="Draft" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator/>
+    <ValidationSummary/>
+
+    <div>
+        <label>
+            Task Group Id
+            <InputText @bind-Value="TaskGroupIdInput"/>
+        </label>
+    </div>
+
+    <div>
+        <label>
+            User Id
+            <InputText @bind-Value="UserIdInput"/>
+        </label>
+    </div>
+
+    <div>
+        <button type="submit">Add Member</button>
+    </div>
+</EditForm>
+
+<hr/>
+
+@if (IsLoading)
+{
+    <p>Loading members...</p>
+}
+else if (Members.Count == 0)
+{
+    <p>No members yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+        <tr>
+            <th>Task Group Id</th>
+            <th>User Id</th>
+            <th>Added</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var member in Members)
+        {
+            <tr>
+                <td>@member.TaskGroupId</td>
+                <td>@member.UserId</td>
+                <td>@member.CreatedAt.ToString("yyyy-MM-dd")</td>
+                <td>
+                    <button @onclick="() => DeleteAsync(member)">Remove</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<TaskGroupMember> Members { get; } = new();
+    private TaskGroupMember Draft { get; set; } = new();
+    private string TaskGroupIdInput { get; set; } = string.Empty;
+    private string UserIdInput { get; set; } = string.Empty;
+    private bool IsLoading { get; set; } = true;
+    private string? StatusMessage { get; set; }
+    private string? ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembersAsync();
+    }
+
+    private async Task LoadMembersAsync()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        try
+        {
+            var response = await Supabase.From<TaskGroupMember>()
+                .Order(x => x.CreatedAt, Constants.Ordering.Descending)
+                .Get();
+
+            Members.Clear();
+            Members.AddRange(response.Models);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to load members: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+
+        if (!Guid.TryParse(TaskGroupIdInput, out var taskGroupId))
+        {
+            ErrorMessage = "Task Group Id must be a valid GUID.";
+            return;
+        }
+
+        if (!Guid.TryParse(UserIdInput, out var userId))
+        {
+            ErrorMessage = "User Id must be a valid GUID.";
+            return;
+        }
+
+        Draft = new TaskGroupMember
+        {
+            TaskGroupId = taskGroupId,
+            UserId = userId
+        };
+
+        try
+        {
+            var insert = await Supabase.From<TaskGroupMember>().Insert(Draft);
+            var created = insert.Models.FirstOrDefault();
+            if (created != null)
+            {
+                Members.Insert(0, created);
+            }
+
+            StatusMessage = "Member added.";
+
+            TaskGroupIdInput = string.Empty;
+            UserIdInput = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to add member: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteAsync(TaskGroupMember member)
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+
+        try
+        {
+            await Supabase.From<TaskGroupMember>().Delete(member);
+            Members.Remove(member);
+            StatusMessage = "Member removed.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to remove member: {ex.Message}";
+        }
+    }
+
+}
